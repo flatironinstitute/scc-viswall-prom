@@ -1,0 +1,10 @@
+[project]
+name = "vizwall-prom"
+version = "0.1.0"
+description = "Generates plots of cluster usage data for the vizwall by scraping Prometheus"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.3",
+    "urllib3>=2.3.0",
+]
