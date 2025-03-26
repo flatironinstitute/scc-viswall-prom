@@ -1,5 +1,6 @@
 import warnings
 from datetime import datetime, timedelta
+from typing import Literal
 
 import requests
 import urllib3
@@ -9,8 +10,11 @@ PROMETHEUS_URL = {
     "rusty": "http://prometheus.flatironinstitute.org:80",
 }
 
+Cluster = Literal["popeye", "rusty"]
+Grouping = Literal["account", "nodes"]
 
-def get_max_cpus(cluster: str, days: int, step: str = "1h") -> list:
+
+def get_max_cpus(cluster: Cluster, days: int, step: str = "1h") -> list:
     """
     Queries Prometheus API for the total number of CPUs available in a cluster.
     The result is a list because the value may change as nodes go on- and off-line.
@@ -38,36 +42,37 @@ def get_max_cpus(cluster: str, days: int, step: str = "1h") -> list:
     return []
 
 
-def get_usage_by_account(cluster: str, days: int, step: str = "1h") -> dict:
+def get_usage_by(
+    grouping: Grouping, cluster: Cluster, days: int, step: str = "1h"
+) -> dict:
     """
-    Queries Prometheus API for CPU usage by account over a specified number of days.
+    Queries Prometheus API for CPU usage by the given grouping over a specified number of days.
 
     Args:
         cluster: The name of the cluster to query
         days: The number of days to look back from today
 
     Returns:
-        A dictionary with account names as keys and lists of usage values as values.
+        A dictionary with grouping names as keys and lists of usage values as values.
     """
     end_time = datetime.now()
     start_time = end_time - timedelta(days=days)
 
-    # Query for CPU usage by account over the last 'days' days
-    query = _usage_query()
+    query = _usage_query(grouping)
     url = PROMETHEUS_URL[cluster.lower()]
     result = _query_range(query, url, start_time, end_time, step)
 
     if result:
-        return _group_by(result, "account")
+        return _group_by(result, grouping)
     else:
         return {}
 
 
-def _usage_query():
+def _usage_query(grouping: Grouping) -> str:
     """
-    Generates a PromQL query for CPU usage by account.
+    Generates a PromQL query for CPU usage by the given grouping.
     """
-    return 'sum by(account) (slurm_job_cpus{state="running",job="slurm"})'
+    return f'sum by({grouping}) (slurm_job_cpus{{state="running",job="slurm"}})'
 
 
 def _max_cpus_query():
@@ -122,7 +127,7 @@ def _query_range(
 def _group_by(result: dict, metric: str) -> dict:
     """
     Formats Prometheus range query results as a dictionary of lists.
-    Each key is an account name, and each value is a list of values.
+    Each key is a grouping value, and each value is a list of values.
     """
     if not result or "data" not in result or "result" not in result["data"]:
         return {}
@@ -131,17 +136,19 @@ def _group_by(result: dict, metric: str) -> dict:
 
     for series in result["data"]["result"]:
         if "metric" in series and metric in series["metric"]:
-            account = series["metric"][metric]
+            group = series["metric"][metric]
             # Extract just the values (second item in each time-value pair)
             values = [int(point[1]) for point in series.get("values", [])]
-            data_dict[account] = values
+            data_dict[group] = values
 
     return data_dict
 
 
 if __name__ == "__main__":
-    print(get_usage_by_account("rusty", 7, "1d"))
+    print(get_usage_by("account", "rusty", 7, "1d"))
+    print(get_usage_by("nodes", "rusty", 7, "1d"))
     print(get_max_cpus("rusty", 7, "1d"))
 
-    print(get_usage_by_account("popeye", 7, "1d"))
+    print(get_usage_by("account", "popeye", 7, "1d"))
+    print(get_usage_by("nodes", "popeye", 7, "1d"))
     print(get_max_cpus("popeye", 7, "1d"))
