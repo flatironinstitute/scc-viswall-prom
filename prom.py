@@ -18,11 +18,17 @@ PROMETHEUS_URL = {
 
 Cluster = Literal['popeye', 'rusty']
 Grouping = Literal['account', 'nodes', None]
+Resource = Literal['cpus', 'bytes', 'gpus']
 
 
-def get_max_cpus(cluster: Cluster, days: int, step: str = '1h') -> dict[list]:
+def get_max_resource(
+    cluster: Cluster,
+    days: int,
+    step: str = '1h',
+    resource: Resource = 'cpus',
+) -> dict[list]:
     """
-    Queries Prometheus API for the total number of CPUs available in a cluster.
+    Queries Prometheus API for the resource capacity in a cluster.
     The result is a dict of list because the value may change as nodes go on- and off-line.
 
     Args:
@@ -35,7 +41,7 @@ def get_max_cpus(cluster: Cluster, days: int, step: str = '1h') -> dict[list]:
     end_time = datetime.now()
     start_time = end_time - timedelta(days=days)
 
-    query = _max_cpus_query(by_nodes=True)
+    query = _capacity_query(resource, by_nodes=True)
     url = PROMETHEUS_URL[cluster.lower()]
     result = _query_range(query, url, start_time, end_time, step)
 
@@ -50,7 +56,11 @@ def get_max_cpus(cluster: Cluster, days: int, step: str = '1h') -> dict[list]:
 
 
 def get_usage_by(
-    grouping: Grouping, cluster: Cluster, days: int, step: str = '1h'
+    grouping: Grouping,
+    cluster: Cluster,
+    days: int,
+    step: str = '1h',
+    resource: Resource = 'cpus',
 ) -> dict:
     """
     Queries Prometheus API for CPU usage by the given grouping over a specified number of days.
@@ -65,7 +75,7 @@ def get_usage_by(
     end_time = datetime.now()
     start_time = end_time - timedelta(days=days)
 
-    query = _usage_query(grouping)
+    query = _usage_query(grouping, resource)
     url = PROMETHEUS_URL[cluster.lower()]
     result = _query_range(query, url, start_time, end_time, step)
 
@@ -75,20 +85,18 @@ def get_usage_by(
         return {}
 
 
-def _usage_query(grouping: Grouping) -> str:
+def _usage_query(grouping: Grouping, resource: Resource) -> str:
     """
-    Generates a PromQL query for CPU usage by the given grouping.
+    Generates a PromQL query for usage by the given grouping.
     """
-    return f'sum by({grouping}) (slurm_job_cpus{{state="running",job="slurm"}})'
+    return f'sum by({grouping}) (slurm_job_{resource}{{state="running",job="slurm"}})'
 
 
-def _max_cpus_query(by_nodes: bool = False) -> str:
+def _capacity_query(resource: Resource, by_nodes: bool = False) -> str:
     """
-    Generates a PromQL query for total CPUs available in the cluster.
+    Generates a PromQL query for total available in the cluster.
     """
-    return 'sum {} (slurm_node_cpus{{state!="drain",state!="down"}})'.format(
-        'by(nodes)' if by_nodes else ''
-    )
+    return f'sum {"by(nodes)" if by_nodes else ""} (slurm_node_{resource}{{state!="drain",state!="down"}})'
 
 
 def _query_range(
@@ -177,10 +185,18 @@ def _group_by(result: dict, metric: str, missing=0) -> dict:
 
 
 if __name__ == '__main__':
+    print('rusty cpu')
     print(get_usage_by('account', 'rusty', 7, '1d'))
     print(get_usage_by('nodes', 'rusty', 7, '1d'))
-    print(get_max_cpus('rusty', 7, '1d'))
+    print(get_max_resource('rusty', 7, '1d'))
+    print()
 
+    print('rusty gpus')
+    print(get_usage_by('nodes', 'rusty', 7, '1d', 'gpus'))
+    print(get_max_resource('rusty', 7, '1d', 'gpus'))
+    print()
+
+    print('popeye cpu')
     print(get_usage_by('account', 'popeye', 7, '1d'))
     print(get_usage_by('nodes', 'popeye', 7, '1d'))
-    print(get_max_cpus('popeye', 7, '1d'))
+    print(get_max_resource('popeye', 7, '1d'))
