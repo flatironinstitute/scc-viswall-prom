@@ -47,21 +47,16 @@ plt.rcParams['font.family'] = 'monospace'
     help='DPI for the output plot',
 )
 def plot_usage(
-    days: int = 7, step: str = '1h', by_nodes_step: str = '2h', dpi: int = 144
+    days: int = 7, step: str = '1h', dpi: int = 144
 ):
     # fmt: off
     # Gather data
     rusty_acct   = prom.get_usage_by("account", "rusty" , days, step)
-    # rusty_nodes  = prom.get_usage_by("nodes"  , "rusty" , days, step)
+    rusty_nodes  = prom.get_usage_by("nodes"  , "rusty" , days, step)
     popeye_acct  = prom.get_usage_by("account", "popeye", days, step)
-    # popeye_nodes = prom.get_usage_by("nodes"  , "popeye", days, step)
+    popeye_nodes = prom.get_usage_by("nodes"  , "popeye", days, step)
     rusty_max  = prom.get_max_cpus("rusty", days, step)
     popeye_max = prom.get_max_cpus("popeye", days, step)
-
-    rusty_nodes_lowstep  = prom.get_usage_by("nodes"  , "rusty" , days, by_nodes_step)
-    popeye_nodes_lowstep = prom.get_usage_by("nodes"  , "popeye", days, by_nodes_step)
-    rusty_max_lowstep  = prom.get_max_cpus("rusty", days, by_nodes_step)
-    popeye_max_lowstep = prom.get_max_cpus("popeye", days, by_nodes_step)
     # fmt: on
 
     initialize_colors(
@@ -70,7 +65,7 @@ def plot_usage(
         fixed=CENTER_COLORS,
     )
     initialize_colors(
-        NODE_COLOR_REGISTRY, unique_keys([rusty_nodes_lowstep, popeye_nodes_lowstep])
+        NODE_COLOR_REGISTRY, unique_keys([rusty_nodes, popeye_nodes])
     )
 
     fig, axes = plt.subplots(
@@ -90,14 +85,11 @@ def plot_usage(
         'Rusty Usage by Center',
         CENTER_COLOR_REGISTRY,
     )
-    # _plot_percentages(
     _plot_bar_chart(
         axes,
         (0, 1),
-        # rusty_nodes,
-        # rusty_max,
-        rusty_nodes_lowstep,
-        rusty_max_lowstep,
+        rusty_nodes,
+        rusty_max,
         'Rusty Current Usage by Node Type',
         NODE_COLOR_REGISTRY,
     )
@@ -109,14 +101,11 @@ def plot_usage(
         'Popeye Usage by Center',
         CENTER_COLOR_REGISTRY,
     )
-    # _plot_percentages(
     _plot_bar_chart(
         axes,
         (1, 1),
-        # popeye_nodes,
-        # popeye_max,
-        popeye_nodes_lowstep,
-        popeye_max_lowstep,
+        popeye_nodes,
+        popeye_max,
         'Popeye Current Usage by Node Type',
         NODE_COLOR_REGISTRY,
     )
@@ -246,8 +235,9 @@ def _plot_bar_chart(
         keys,
         max_bar_data,
         color='none',
-        edgecolor=get_colors(color_registry, keys),
-        linewidth=2,
+        # edgecolor=get_colors(color_registry, keys),
+        edgecolor='black',
+        linewidth=1.5,
         label='Capacity',
     )
 
@@ -289,81 +279,6 @@ def _plot_bar_chart(
             lambda x, pos: f'{x / 1_000:.0f} K' if x >= 1_000 else f'{x:.0f}'
         )
     )
-
-
-def _plot_percentages(
-    axes,
-    pos: tuple[int, int],
-    data: dict,
-    max_data: list,
-    title: str,
-    color_registry: dict,
-):
-    """Plot the (unstacked) percent of CPUs used for each node type relative to the max
-    for that type."""
-
-    ax: plt.Axes = axes[pos]
-    if not data:
-        ax.set_title(f'{title}\nNo Data')
-        return
-    x_vals = data.pop('timestamps')
-    keys = list(data.keys())
-    keys.sort(key=lambda k: data[k][-1], reverse=True)
-    # Create X values and prepare the stacked data
-    stack_data = [data[k] for k in keys]
-
-    for idx, key in enumerate(keys):
-        ax.plot(
-            x_vals,
-            np.array(stack_data[idx]) / np.array(max_data[key]) * 100,
-            label=key,
-            color=color_registry[key],
-            lw=2,
-        )
-
-    ax.legend(loc='upper left', ncol=2, framealpha=0.95)
-    ax.set_xlim(left=min(x_vals), right=max(x_vals))
-    ax.set_ylim(bottom=0, top=110)
-
-    # format x-axis labels as dates
-    ax.xaxis.set_major_formatter(date_formatter)
-    ax.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
-
-    ax.tick_params(
-        axis='both',
-        which='both',
-        left=True,
-        right=True,
-        top=True,
-        bottom=True,
-    )
-
-    if pos[0] == 1:
-        ax.set_xlabel('Time')
-    ax.set_ylabel('Percent Allocated', rotation=270, labelpad=10)
-    if pos[1] == 1:
-        ax.yaxis.set_label_position('right')
-        ax.tick_params(
-            axis='y',
-            which='both',
-            labelleft=False,
-            labelright=True,
-            right=True,
-        )
-
-    ax.text(
-        0.98,
-        0.98,
-        title,
-        transform=ax.transAxes,
-        fontsize='larger',
-        fontweight='bold',
-        verticalalignment='top',
-        horizontalalignment='right',
-    )
-
-    # Format y-axis as percentage
-    ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda x, pos: f'{x:.0f}%'))
 
 
 def date_formatter(ts: float, pos=None) -> str:
