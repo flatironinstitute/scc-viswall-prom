@@ -5,10 +5,10 @@
 from datetime import datetime
 from pathlib import Path
 
+import matplotlib as mpl
+import matplotlib.dates
 import click
 import matplotlib.pyplot as plt
-from matplotlib import dates as mdates
-from matplotlib.ticker import FuncFormatter
 
 import prom
 
@@ -20,6 +20,9 @@ CENTER_COLORS = {
     'ccq': '#845B8E',
     'scc': '#8F8F8F',
 }
+
+CENTER_COLOR_REGISTRY = {}
+NODE_COLOR_REGISTRY = {}
 
 plt.rcParams['font.family'] = 'monospace'
 
@@ -52,16 +55,51 @@ def plot_usage(days: int = 7, step: str = '1h', dpi: int = 120):
     popeye_nodes = prom.get_usage_by("nodes"  , "popeye", days, step)
     rusty_max  = prom.get_max_cpus("rusty", days, step)
     popeye_max = prom.get_max_cpus("popeye", days, step)
+    # fmt: on
+
+    initialize_colors(
+        CENTER_COLOR_REGISTRY,
+        unique_keys([rusty_acct, popeye_acct]),
+        fixed=CENTER_COLORS,
+    )
+    initialize_colors(NODE_COLOR_REGISTRY, unique_keys([rusty_nodes, popeye_nodes]))
 
     fig, axes = plt.subplots(
         2, 2, figsize=(1920 // dpi, 1080 // dpi), dpi=dpi, sharex=True, sharey='row'
     )
 
-    _plot_stacked(axes, (0, 0), rusty_acct  , rusty_max , 'Rusty Usage by Center')
-    _plot_stacked(axes, (0, 1), rusty_nodes , rusty_max , 'Rusty Usage by Node Type')
-    _plot_stacked(axes, (1, 0), popeye_acct , popeye_max, 'Popeye Usage by Center')
-    _plot_stacked(axes, (1, 1), popeye_nodes, popeye_max, 'Popeye Usage by Node Type')
-    # fmt: on
+    _plot_stacked(
+        axes,
+        (0, 0),
+        rusty_acct,
+        rusty_max,
+        'Rusty Usage by Center',
+        CENTER_COLOR_REGISTRY,
+    )
+    _plot_stacked(
+        axes,
+        (0, 1),
+        rusty_nodes,
+        rusty_max,
+        'Rusty Usage by Node Type',
+        NODE_COLOR_REGISTRY,
+    )
+    _plot_stacked(
+        axes,
+        (1, 0),
+        popeye_acct,
+        popeye_max,
+        'Popeye Usage by Center',
+        CENTER_COLOR_REGISTRY,
+    )
+    _plot_stacked(
+        axes,
+        (1, 1),
+        popeye_nodes,
+        popeye_max,
+        'Popeye Usage by Node Type',
+        NODE_COLOR_REGISTRY,
+    )
 
     fig.tight_layout()
     timestamp = datetime.now().strftime(r'%Y-%m-%d_%H%M%S')
@@ -81,6 +119,7 @@ def _plot_stacked(
     data: dict,
     max_data: list,
     title: str,
+    color_registry: dict,
 ):
     ax: plt.Axes = axes[pos]
     if not data:
@@ -96,16 +135,25 @@ def _plot_stacked(
         x_vals,
         stack_data,
         labels=keys,
-        colors=get_colors(keys, centers=pos[1] == 0),
+        colors=get_colors(color_registry, keys),
     )
     ax.plot(x_vals, max_data, label='Capacity', color='black', linestyle='-')
-    ax.legend(loc='upper left', ncol=2, framealpha=0.9)
+    ax.legend(loc='upper left', ncol=2, framealpha=0.95)
     ax.set_xlim(left=min(x_vals), right=max(x_vals))
     ax.set_ylim(top=max(max_data) * 1.1)
 
     # format x-axis labels as dates
     ax.xaxis.set_major_formatter(date_formatter)
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
+
+    ax.tick_params(
+        axis='both',
+        which='both',
+        left=True,
+        right=True,
+        top=True,
+        bottom=True,
+    )
 
     if pos[0] == 1:
         ax.set_xlabel('Time')
@@ -117,7 +165,6 @@ def _plot_stacked(
             which='both',
             labelleft=False,
             labelright=True,
-            left=False,
             right=True,
         )
 
@@ -133,39 +180,49 @@ def _plot_stacked(
     )
 
     ax.yaxis.set_major_formatter(
-        FuncFormatter(lambda x, pos: f'{x / 1_000:.0f} K' if x >= 1_000 else f'{x:.0f}')
+        mpl.ticker.FuncFormatter(
+            lambda x, pos: f'{x / 1_000:.0f} K' if x >= 1_000 else f'{x:.0f}'
+        )
     )
 
 
-def get_colors(keys: list[str], centers: bool = False) -> list[str]:
-    """
-    Get colors for the given keys.
-    If a key is not in CENTER_COLORS, cycle through the default colors
-    in alphabetical key order (to preserve consistency across runs).
-    """
-    # Get default colors from matplotlib
-    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-
-    colors = {}
-    default_idx = 0
-
-    for key in keys:
-        if centers and key.lower() in CENTER_COLORS:
-            colors[key] = CENTER_COLORS[key.lower()]
-        else:
-            colors[key] = default_colors[default_idx % len(default_colors)]
-            default_idx += 1
-
-    colors = [colors[key] for key in keys]
-    return colors
-
-
 def date_formatter(ts: float, pos=None) -> str:
-    dt: datetime = mdates.num2date(ts)
+    dt: datetime = mpl.dates.num2date(ts)
     month = dt.strftime('%b')
     day = dt.strftime('%d')
 
     return f'{month}{"." if month != "May" else ""} {day}'
+
+
+def unique_keys(dicts: list[dict]) -> set[str]:
+    """Get a set of unique keys from a list of dictionaries"""
+    keys = set()
+    for d in dicts:
+        keys.update(d.keys())
+    return keys
+
+
+def get_colors(registry, keys: list[str]) -> list[str]:
+    """Get colors for the given keys using the global KEY_TO_COLOR mapping."""
+    return [registry[key] for key in keys]
+
+
+def initialize_colors(
+    registry: dict, keys: set[str], fixed=None, fallback_cmap='tab10'
+):
+    """Initialize global color mapping for all keys across all subplots"""
+
+    if fixed:
+        for key in keys:
+            if key.lower() in fixed:
+                registry[key] = fixed[key.lower()]
+
+    # Then, assign tab10 colors to remaining keys (sorted alphabetically)
+    fallback_cmap = mpl.colormaps[fallback_cmap]
+    remaining_keys = sorted([k for k in keys if k not in registry])
+
+    for idx, key in enumerate(remaining_keys):
+        registry[key] = fallback_cmap(idx % len(fallback_cmap.colors))
 
 
 if __name__ == '__main__':
