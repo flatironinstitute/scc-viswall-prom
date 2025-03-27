@@ -17,35 +17,36 @@ PROMETHEUS_URL = {
 }
 
 Cluster = Literal['popeye', 'rusty']
-Grouping = Literal['account', 'nodes']
+Grouping = Literal['account', 'nodes', None]
 
 
-def get_max_cpus(cluster: Cluster, days: int, step: str = '1h') -> list:
+def get_max_cpus(cluster: Cluster, days: int, step: str = '1h') -> dict[list]:
     """
     Queries Prometheus API for the total number of CPUs available in a cluster.
-    The result is a list because the value may change as nodes go on- and off-line.
+    The result is a dict of list because the value may change as nodes go on- and off-line.
 
     Args:
         cluster: The name of the cluster to query
 
     Returns:
-        The maximum number of CPUs available in the cluster.
+        The maximum number of CPUs available in the cluster, keyed by node type.
+        The result will also have a 'total' key.
     """
     end_time = datetime.now()
     start_time = end_time - timedelta(days=days)
 
-    query = _max_cpus_query()
+    query = _max_cpus_query(by_nodes=True)
     url = PROMETHEUS_URL[cluster.lower()]
     result = _query_range(query, url, start_time, end_time, step)
 
     if result:
-        if result['data']['result']:
-            series = result['data']['result'][0]
-            if 'values' in series:
-                # Extract just the values (second item in each time-value pair)
-                values = [int(point[1]) for point in series['values']]
-                return values
-    return []
+        result = _group_by(result, 'nodes')
+        result['total'] = [
+            sum(v) for v in zip(*(result[k] for k in result if k != 'timestamps'))
+        ]
+        return result
+    else:
+        return {}
 
 
 def get_usage_by(
@@ -81,11 +82,13 @@ def _usage_query(grouping: Grouping) -> str:
     return f'sum by({grouping}) (slurm_job_cpus{{state="running",job="slurm"}})'
 
 
-def _max_cpus_query():
+def _max_cpus_query(by_nodes: bool = False) -> str:
     """
     Generates a PromQL query for total CPUs available in the cluster.
     """
-    return 'sum (slurm_node_cpus{state!="drain",state!="down"})'
+    return 'sum {} (slurm_node_cpus{{state!="drain",state!="down"}})'.format(
+        'by(nodes)' if by_nodes else ''
+    )
 
 
 def _query_range(
