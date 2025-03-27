@@ -5,6 +5,11 @@ description = "Generates plots of cluster usage data for the vizwall by scraping
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "click>=8.1.8",
+    "matplotlib>=3.10.1",
     "requests>=2.32.3",
     "urllib3>=2.3.0",
 ]
+
+[tool.ruff.format]
+quote-style = "single"
