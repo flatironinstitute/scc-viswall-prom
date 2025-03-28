@@ -62,11 +62,9 @@ def plot_usage(
     rusty_gpus   = prom.get_usage_by("nodes"  , "rusty" , days, step, "gpus")
     popeye_acct  = prom.get_usage_by("account", "popeye", days, step)
     popeye_nodes = prom.get_usage_by("nodes"  , "popeye", days, step)
-    popeye_gpus = prom.get_usage_by("nodes"  , "popeye" , days, step, "gpus")
-    rusty_max  = prom.get_max_resource("rusty", days, step)
+    rusty_max      = prom.get_max_resource("rusty", days, step)
     rusty_max_gpus = prom.get_max_resource("rusty", days, step, "gpus")
-    popeye_max = prom.get_max_resource("popeye", days, step)
-    popeye_max_gpus = prom.get_max_resource("popeye", days, step, "gpus")
+    popeye_max     = prom.get_max_resource("popeye", days, step)
     # fmt: on
 
     initialize_colors(
@@ -86,9 +84,6 @@ def plot_usage(
         width_ratios=[8, 5, 2],
         layout='constrained',
     )
-
-    # move up slightly
-    move_fig_rect(fig, up=0.01)
 
     _plot_stacked(
         axes,
@@ -130,17 +125,10 @@ def plot_usage(
         'Popeye Current CPU Usage',
         NODE_COLOR_REGISTRY,
     )
-    _plot_bar_chart(
+    _logo_plot(
         axes,
         (1, 2),
-        popeye_gpus,
-        popeye_max_gpus,
-        'Popeye GPUs',
-        NODE_COLOR_REGISTRY,
     )
-
-    add_author(fig)
-    add_timestamp(fig)
 
     if not outfn:
         timestamp = datetime.now().strftime(r'%Y-%m-%d_%H%M%S')
@@ -294,6 +282,72 @@ def _plot_bar_chart(
     )
 
 
+def _logo_plot(axes, pos: tuple[int, int]):
+    pos_above = (pos[0] - 1, pos[1])
+    ax: plt.Axes = axes[pos]
+    ax.set_axis_off()
+
+    # Get figure and axes dimensions
+    fig = ax.get_figure()
+    fig.canvas.draw()
+    ax_bbox = ax.get_position()
+
+    # Load the image
+    img = Image.open('scc_icon.png')
+
+    # Calculate image dimensions and position in figure coordinates
+    ratio = 0.05
+    img_aspect = img.width / img.height
+
+    # Resize the image
+    display_height = int(fig.bbox.height * ratio)
+    display_width = int(display_height * img_aspect)
+    img_resized = img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+
+    # Position in figure coordinates (center of axes + vertical offset)
+    # xoff = 0.05  # fig coordinates
+    yoff = 0.0
+    x_center = (ax_bbox.x0 + ax_bbox.width / 2) * fig.bbox.width
+    y_center = (ax_bbox.y0 + ax_bbox.height / 2 + yoff) * fig.bbox.height
+
+    print(locals())
+
+    # Convert image to array and display
+    fig.figimage(
+        np.array(img_resized), xo=x_center - img_resized.width / 2, yo=y_center - img_resized.height / 2, origin='upper'
+    )
+
+    # text above the logo
+    text_yoff = 0.05
+    fig.text(
+        x_center / fig.bbox.width,
+        y_center / fig.bbox.height + text_yoff,
+        'Made by\nyour friends\nin SCC',
+        transform=fig.transFigure,
+        fontweight='bold',
+        verticalalignment='bottom',
+        horizontalalignment='center',
+        fontsize='larger',
+        color='black',
+    )
+
+    datetext = datetime.now().strftime(r'%Y-%m-%d')
+    timetext = datetime.now().strftime(r'%-I:%M %p ET')
+
+    # timestamp below the logo
+    fig.text(
+        x_center / fig.bbox.width,
+        y_center / fig.bbox.height - text_yoff,
+        f'Last updated:\n{timetext}\n{datetext}',
+        transform=fig.transFigure,
+        fontweight='bold',
+        verticalalignment='top',
+        horizontalalignment='center',
+        fontsize='larger',
+        color='black',
+    )
+
+
 def add_subplot_title(ax: plt.Axes, title: str):
     ax.text(
         0.98,
@@ -313,43 +367,6 @@ def date_formatter(ts: float, pos=None) -> str:
     day = dt.strftime('%d')
 
     return f'{month}{"." if month != "May" else ""} {day}'
-
-
-def add_author(fig: plt.Figure):
-    # Add text
-    fig.text(
-        0.976,
-        0.01,
-        'Made by your friends in SCC',
-        fontweight='bold',
-        verticalalignment='bottom',
-        horizontalalignment='right',
-    )
-
-    img = Image.open('scc_icon.png')
-
-    # Set a small height in pixels for the logo (similar to text height)
-    height = 15
-    width = int(height * (img.width / img.height))
-
-    img_resized = img.resize((width, height), Image.Resampling.LANCZOS)
-    logo_array = np.array(img_resized)
-
-    x_position = fig.bbox.xmax - width - 14
-    y_position = fig.bbox.ymin + 14
-
-    fig.figimage(logo_array, x_position, y_position, zorder=10)
-
-
-def add_timestamp(fig: plt.Figure):
-    fig.text(
-        0.01,
-        0.01,
-        datetime.now().strftime(r'%Y-%m-%d %-I:%M %p ET'),
-        fontweight='bold',
-        verticalalignment='bottom',
-        horizontalalignment='left',
-    )
 
 
 def ax_no_data(ax: plt.Axes, title: str):
@@ -391,15 +408,6 @@ def initialize_colors(
 
     for idx, key in enumerate(remaining_keys):
         registry[key] = fallback_cmap(idx % len(fallback_cmap.colors))
-
-
-def move_fig_rect(fig, up=0):
-    layout_engine = fig.get_layout_engine()
-    layout_params = layout_engine.get()
-    rect = list(layout_params['rect'])
-    rect[1] = up  # bottom
-    rect[3] = 1 - up  # height
-    layout_engine.set(rect=rect)
 
 
 if __name__ == '__main__':
