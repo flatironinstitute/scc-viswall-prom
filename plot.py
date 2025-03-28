@@ -329,7 +329,7 @@ def add_author(fig: plt.Figure):
     img = Image.open('scc_icon.png')
 
     # Set a small height in pixels for the logo (similar to text height)
-    height = 16
+    height = 15
     width = int(height * (img.width / img.height))
 
     img_resized = img.resize((width, height), Image.Resampling.LANCZOS)
