@@ -74,9 +74,7 @@ def plot_usage(
         unique_keys([rusty_acct, popeye_acct]),
         fixed=CENTER_COLORS,
     )
-    initialize_colors(
-        NODE_COLOR_REGISTRY, unique_keys([rusty_nodes, popeye_nodes])
-    )
+    initialize_colors(NODE_COLOR_REGISTRY, unique_keys([rusty_nodes, popeye_nodes]))
 
     fig, axes = plt.subplots(
         2,
@@ -85,22 +83,19 @@ def plot_usage(
         dpi=dpi,
         sharex=False,
         sharey=False,
-        width_ratios=[7, 4, 2],
+        width_ratios=[8, 5, 2],
         layout='constrained',
     )
-    layout_engine = fig.get_layout_engine()
-    layout_params = layout_engine.get()
-    rect = list(layout_params['rect'])
-    rect[1] = 0.01  # bottom
-    rect[3] = 0.99  # top
-    layout_engine.set(rect=rect)
+
+    # move up slightly
+    move_fig_rect(fig, up=0.01)
 
     _plot_stacked(
         axes,
         (0, 0),
         rusty_acct,
         rusty_max,
-        'Rusty Usage by Center',
+        'Rusty CPU Usage by Center',
         CENTER_COLOR_REGISTRY,
     )
     _plot_bar_chart(
@@ -116,7 +111,7 @@ def plot_usage(
         (0, 2),
         rusty_gpus,
         rusty_max_gpus,
-        'Rusty Current GPUs',
+        'Rusty GPUs',
         NODE_COLOR_REGISTRY,
     )
     _plot_stacked(
@@ -124,7 +119,7 @@ def plot_usage(
         (1, 0),
         popeye_acct,
         popeye_max,
-        'Popeye Usage by Center',
+        'Popeye CPU Usage by Center',
         CENTER_COLOR_REGISTRY,
     )
     _plot_bar_chart(
@@ -140,7 +135,7 @@ def plot_usage(
         (1, 2),
         popeye_gpus,
         popeye_max_gpus,
-        'Popeye Current GPUs',
+        'Popeye GPUs',
         NODE_COLOR_REGISTRY,
     )
 
@@ -231,10 +226,9 @@ def _plot_bar_chart(
     title: str,
     color_registry: dict,
 ):
-    """Plot an (unstacked) bar chart of one bar per node type, showing current CPUs allocated.
-    In other words, this is a snapshot of the latest cluster state, not a timeline. The x values
-    will be the node types, and the y values will be the number of CPUs allocated to each node type.
-    Mark the max number of CPUs per node type as well.
+    """Plot an (unstacked) bar chart of one bar per node type, showing current CPUs
+    allocated. In other words, this is a snapshot of the latest cluster state, not a
+    timeline. The capacity is shown as a hollow bar on top of the solid bars.
     """
     ax: plt.Axes = axes[pos]
     if not data:
@@ -242,9 +236,14 @@ def _plot_bar_chart(
         return
     data.pop('timestamps')
     keys = list(data.keys())
+
+    # remove keys with zero max
+    keys = [k for k in keys if max_data[k][-1] > 0]
+
     keys.sort()
-    bar_data = [data[k][-1] for k in keys]
     max_bar_data = [max_data[k][-1] for k in keys]
+
+    bar_data = [data[k][-1] for k in keys]
 
     ax.set_ylim(top=max(max_bar_data) * 1.1)
 
@@ -294,6 +293,7 @@ def _plot_bar_chart(
         )
     )
 
+
 def add_subplot_title(ax: plt.Axes, title: str):
     ax.text(
         0.98,
@@ -305,6 +305,7 @@ def add_subplot_title(ax: plt.Axes, title: str):
         verticalalignment='top',
         horizontalalignment='right',
     )
+
 
 def date_formatter(ts: float, pos=None) -> str:
     dt: datetime = mpl.dates.num2date(ts)
@@ -350,14 +351,16 @@ def add_timestamp(fig: plt.Figure):
         horizontalalignment='left',
     )
 
+
 def ax_no_data(ax: plt.Axes, title: str):
     ax.tick_params(
-            left=False,
-            bottom=False,
-            labelleft=False,
-            labelbottom=False,
-        )
+        left=False,
+        bottom=False,
+        labelleft=False,
+        labelbottom=False,
+    )
     add_subplot_title(ax, f'{title}\nNo Data')
+
 
 def unique_keys(dicts: list[dict]) -> set[str]:
     """Get a set of unique keys from a list of dictionaries"""
@@ -388,6 +391,15 @@ def initialize_colors(
 
     for idx, key in enumerate(remaining_keys):
         registry[key] = fallback_cmap(idx % len(fallback_cmap.colors))
+
+
+def move_fig_rect(fig, up=0):
+    layout_engine = fig.get_layout_engine()
+    layout_params = layout_engine.get()
+    rect = list(layout_params['rect'])
+    rect[1] = up  # bottom
+    rect[3] = 1 - up  # height
+    layout_engine.set(rect=rect)
 
 
 if __name__ == '__main__':
