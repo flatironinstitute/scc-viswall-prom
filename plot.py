@@ -43,20 +43,30 @@ plt.rcParams['font.family'] = 'monospace'
 @click.option(
     '--dpi',
     '-p',
-    default=130,
+    default=120,
     help='DPI for the output plot',
 )
+@click.option(
+    '--outfn',
+    '-o',
+    default=None,
+    help='Output filename for the plot (default: usage_<timestamp>.png)',
+)
 def plot_usage(
-    days: int = 7, step: str = '1h', dpi: int = 144
+    outfn: str | None = None, days: int = 7, step: str = '1h', dpi: int = 144
 ):
     # fmt: off
     # Gather data
     rusty_acct   = prom.get_usage_by("account", "rusty" , days, step)
     rusty_nodes  = prom.get_usage_by("nodes"  , "rusty" , days, step)
+    rusty_gpus   = prom.get_usage_by("nodes"  , "rusty" , days, step, "gpus")
     popeye_acct  = prom.get_usage_by("account", "popeye", days, step)
     popeye_nodes = prom.get_usage_by("nodes"  , "popeye", days, step)
-    rusty_max  = prom.get_max_cpus("rusty", days, step)
-    popeye_max = prom.get_max_cpus("popeye", days, step)
+    popeye_gpus = prom.get_usage_by("nodes"  , "popeye" , days, step, "gpus")
+    rusty_max  = prom.get_max_resource("rusty", days, step)
+    rusty_max_gpus = prom.get_max_resource("rusty", days, step, "gpus")
+    popeye_max = prom.get_max_resource("popeye", days, step)
+    popeye_max_gpus = prom.get_max_resource("popeye", days, step, "gpus")
     # fmt: on
 
     initialize_colors(
@@ -70,12 +80,20 @@ def plot_usage(
 
     fig, axes = plt.subplots(
         2,
-        2,
+        3,
         figsize=(1920 // dpi, 1080 // dpi),
         dpi=dpi,
         sharex=False,
         sharey=False,
+        width_ratios=[7, 4, 2],
+        layout='constrained',
     )
+    layout_engine = fig.get_layout_engine()
+    layout_params = layout_engine.get()
+    rect = list(layout_params['rect'])
+    rect[1] = 0.01  # bottom
+    rect[3] = 0.99  # top
+    layout_engine.set(rect=rect)
 
     _plot_stacked(
         axes,
@@ -90,7 +108,15 @@ def plot_usage(
         (0, 1),
         rusty_nodes,
         rusty_max,
-        'Rusty Current Usage by Node Type',
+        'Rusty Current CPU Usage',
+        NODE_COLOR_REGISTRY,
+    )
+    _plot_bar_chart(
+        axes,
+        (0, 2),
+        rusty_gpus,
+        rusty_max_gpus,
+        'Rusty Current GPUs',
         NODE_COLOR_REGISTRY,
     )
     _plot_stacked(
@@ -106,16 +132,24 @@ def plot_usage(
         (1, 1),
         popeye_nodes,
         popeye_max,
-        'Popeye Current Usage by Node Type',
+        'Popeye Current CPU Usage',
+        NODE_COLOR_REGISTRY,
+    )
+    _plot_bar_chart(
+        axes,
+        (1, 2),
+        popeye_gpus,
+        popeye_max_gpus,
+        'Popeye Current GPUs',
         NODE_COLOR_REGISTRY,
     )
 
     add_author(fig)
     add_timestamp(fig)
 
-    fig.tight_layout()
-    timestamp = datetime.now().strftime(r'%Y-%m-%d_%H%M%S')
-    outfn = Path(f'usage_{timestamp}.png')
+    if not outfn:
+        timestamp = datetime.now().strftime(r'%Y-%m-%d_%H%M%S')
+        outfn = Path(f'usage_{timestamp}.png')
     fig.savefig(outfn)
 
     print(f'Saved plot to {outfn}')
@@ -135,7 +169,7 @@ def _plot_stacked(
 ):
     ax: plt.Axes = axes[pos]
     if not data:
-        ax.set_title(f'{title}\nNo Data')
+        ax_no_data(ax, title)
         return
     x_vals = data.pop('timestamps')
     keys = list(data.keys())
@@ -167,11 +201,11 @@ def _plot_stacked(
         bottom=True,
     )
 
-    if pos[0] == 1:
+    if pos[0] >= 1:
         ax.set_xlabel('Time')
     if pos[1] == 0:
         ax.set_ylabel('CPU Cores')
-    if pos[1] == 1:
+    if pos[1] >= 1:
         ax.tick_params(
             axis='y',
             which='both',
@@ -180,16 +214,7 @@ def _plot_stacked(
             right=True,
         )
 
-    ax.text(
-        0.98,
-        0.98,
-        title,
-        transform=ax.transAxes,
-        fontsize='larger',
-        fontweight='bold',
-        verticalalignment='top',
-        horizontalalignment='right',
-    )
+    add_subplot_title(ax, title)
 
     ax.yaxis.set_major_formatter(
         mpl.ticker.FuncFormatter(
@@ -213,11 +238,11 @@ def _plot_bar_chart(
     """
     ax: plt.Axes = axes[pos]
     if not data:
-        ax.set_title(f'{title}\nNo Data')
+        ax_no_data(ax, title)
         return
     data.pop('timestamps')
     keys = list(data.keys())
-    # keys.sort(key=lambda k: data[k][-1], reverse=True)
+    keys.sort()
     bar_data = [data[k][-1] for k in keys]
     max_bar_data = [max_data[k][-1] for k in keys]
 
@@ -250,11 +275,9 @@ def _plot_bar_chart(
         bottom=True,
     )
 
-    # if pos[0] == 1:
-    # ax.set_xlabel('Node Type')
     if pos[1] == 0:
         ax.set_ylabel('CPU Cores')
-    if pos[1] == 1:
+    if pos[1] >= 1:
         ax.tick_params(
             axis='y',
             which='both',
@@ -263,6 +286,15 @@ def _plot_bar_chart(
             right=True,
         )
 
+    add_subplot_title(ax, title)
+
+    ax.yaxis.set_major_formatter(
+        mpl.ticker.FuncFormatter(
+            lambda x, pos: f'{x / 1_000:.0f} K' if x >= 1_000 else f'{x:.0f}'
+        )
+    )
+
+def add_subplot_title(ax: plt.Axes, title: str):
     ax.text(
         0.98,
         0.98,
@@ -273,13 +305,6 @@ def _plot_bar_chart(
         verticalalignment='top',
         horizontalalignment='right',
     )
-
-    ax.yaxis.set_major_formatter(
-        mpl.ticker.FuncFormatter(
-            lambda x, pos: f'{x / 1_000:.0f} K' if x >= 1_000 else f'{x:.0f}'
-        )
-    )
-
 
 def date_formatter(ts: float, pos=None) -> str:
     dt: datetime = mpl.dates.num2date(ts)
@@ -295,7 +320,6 @@ def add_author(fig: plt.Figure):
         0.976,
         0.01,
         'Made by your friends in SCC',
-        fontsize='small',
         fontweight='bold',
         verticalalignment='bottom',
         horizontalalignment='right',
@@ -310,8 +334,8 @@ def add_author(fig: plt.Figure):
     img_resized = img.resize((width, height), Image.Resampling.LANCZOS)
     logo_array = np.array(img_resized)
 
-    x_position = fig.bbox.xmax - width - 8
-    y_position = fig.bbox.ymin + 11
+    x_position = fig.bbox.xmax - width - 14
+    y_position = fig.bbox.ymin + 14
 
     fig.figimage(logo_array, x_position, y_position, zorder=10)
 
@@ -321,12 +345,19 @@ def add_timestamp(fig: plt.Figure):
         0.01,
         0.01,
         datetime.now().strftime(r'%Y-%m-%d %-I:%M %p ET'),
-        fontsize='small',
         fontweight='bold',
         verticalalignment='bottom',
         horizontalalignment='left',
     )
 
+def ax_no_data(ax: plt.Axes, title: str):
+    ax.tick_params(
+            left=False,
+            bottom=False,
+            labelleft=False,
+            labelbottom=False,
+        )
+    add_subplot_title(ax, f'{title}\nNo Data')
 
 def unique_keys(dicts: list[dict]) -> set[str]:
     """Get a set of unique keys from a list of dictionaries"""
