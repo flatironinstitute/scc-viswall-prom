@@ -452,7 +452,7 @@ wheels = [
 ]
 
 [[package]]
-name = "vizwall-prom"
+name = "viswall-prom"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

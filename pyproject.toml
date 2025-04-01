@@ -1,7 +1,7 @@
 [project]
-name = "vizwall-prom"
+name = "viswall-prom"
 version = "0.1.0"
-description = "Generates plots of cluster usage data for the Flatiron vizwall by scraping Prometheus"
+description = "Generates plots of cluster usage data for the Flatiron viswall by scraping Prometheus"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-vizwall-prom = "vizwall_prom.plot:plot_usage"
+viswall-prom = "viswall_prom.plot:plot_usage"
 
 [tool.ruff.format]
 quote-style = "single"

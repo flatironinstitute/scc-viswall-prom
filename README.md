@@ -1,6 +1,6 @@
-# vizwall-prom
+# viswall-prom
 
-Generate plots of cluster usage data for the vizwall by scraping Prometheus.
+Generate plots of cluster usage data for the viswall by scraping Prometheus.
 
 ## Usage
 To check that the Prometheus query is working:
