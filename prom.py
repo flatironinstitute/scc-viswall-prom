@@ -19,7 +19,7 @@ PROMETHEUS_URL = {
 NOW = datetime.now()
 
 Cluster = Literal['popeye', 'rusty']
-Grouping = Literal['account', 'nodes', None]
+Grouping = Literal['account', 'nodes', 'gputype', None]
 Resource = Literal['cpus', 'bytes', 'gpus']
 
 
@@ -28,6 +28,7 @@ def get_max_resource(
     days: int,
     step: str = '1h',
     resource: Resource = 'cpus',
+    grouping: Grouping = 'nodes',
 ) -> dict[list]:
     """
     Queries Prometheus API for the resource capacity in a cluster.
@@ -49,18 +50,18 @@ def get_max_resource(
         start_time = NOW
         end_time = None
 
-    query = _capacity_query(resource, by_nodes=True)
+    query = _capacity_query(grouping, resource)
     url = PROMETHEUS_URL[cluster.lower()]
     result = _query(query, url, start_time, end_time, step)
 
     if result:
         if do_range:
-            result = _range_group_by(result, 'nodes')
+            result = _range_group_by(result, grouping)
             result['total'] = [
                 sum(v) for v in zip(*(result[k] for k in result if k != 'timestamps'))
             ]
         else:
-            result = _group_by(result, 'nodes')
+            result = _group_by(result, grouping)
             result['total'] = sum(result.values())
         return result
     else:
@@ -113,11 +114,11 @@ def _usage_query(grouping: Grouping, resource: Resource) -> str:
     return f'sum by({grouping}) (slurm_job_{resource}{{state="running",job="slurm"}})'
 
 
-def _capacity_query(resource: Resource, by_nodes: bool = False) -> str:
+def _capacity_query(grouping: Grouping, resource: Resource) -> str:
     """
     Generates a PromQL query for total available in the cluster.
     """
-    return f'sum {"by(nodes)" if by_nodes else ""} (slurm_node_{resource}{{state!="drain",state!="down"}})'
+    return f'sum {f"by({grouping})" if grouping else ""} (slurm_node_{resource}{{state!="drain",state!="down"}})'
 
 
 def _query(
@@ -242,8 +243,8 @@ if __name__ == '__main__':
     print()
 
     print('rusty gpus')
-    print(get_usage_by('nodes', 'rusty', 7, '1d', 'gpus'))
-    print(get_max_resource('rusty', 7, '1d', 'gpus'))
+    print(get_usage_by('gputype', 'rusty', 7, '1d', 'gpus'))
+    print(get_max_resource('rusty', 0, '', 'gpus', 'gputype'))
     print()
 
     print('popeye cpu')

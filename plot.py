@@ -19,6 +19,7 @@ CENTER_COLORS = {
     'ccn': '#007F9D',
     'ccq': '#845B8E',
     'scc': '#8F8F8F',
+    'flatiron': '#537EBA',
 }
 
 CENTER_COLOR_REGISTRY = {}
@@ -29,6 +30,15 @@ HIDE_CPU = {
     'gpu',
     'gpuxl',
     'mem',
+}
+
+HIDE_GPU = {
+    'v100-sxm2-32gb',
+}
+
+NICKNAME = {
+    'a100-sxm4-80gb': 'a100-80gb',
+    'a100-sxm4-40gb': 'a100-40gb',
 }
 
 plt.rcParams['font.family'] = 'monospace'
@@ -66,11 +76,11 @@ def plot_usage(
     # Gather data
     rusty_acct   = prom.get_usage_by("account", "rusty" , days, step)
     rusty_nodes  = prom.get_usage_by("nodes"  , "rusty" , days, step)
-    rusty_gpus   = prom.get_usage_by("nodes"  , "rusty" , 0, '', "gpus")
+    rusty_gpus   = prom.get_usage_by("gputype"  , "rusty" , 0, '', "gpus")
     popeye_acct  = prom.get_usage_by("account", "popeye", days, step)
     popeye_nodes = prom.get_usage_by("nodes"  , "popeye", days, step)
     rusty_max      = prom.get_max_resource("rusty", days, step)
-    rusty_max_gpus = prom.get_max_resource("rusty", 0, '', "gpus")
+    rusty_max_gpus = prom.get_max_resource("rusty", 0, '', "gpus", "gputype")
     popeye_max     = prom.get_max_resource("popeye", days, step)
     # fmt: on
 
@@ -79,7 +89,9 @@ def plot_usage(
         unique_keys([rusty_acct, popeye_acct]),
         fixed=CENTER_COLORS,
     )
-    initialize_colors(NODE_COLOR_REGISTRY, unique_keys([rusty_nodes, popeye_nodes]))
+    initialize_colors(
+        NODE_COLOR_REGISTRY, unique_keys([rusty_nodes, popeye_nodes, rusty_max_gpus])
+    )
 
     fig, axes = plt.subplots(
         2,
@@ -106,7 +118,6 @@ def plot_usage(
         select_last(rusty_nodes),
         select_last(rusty_max),
         'Rusty Current CPU Usage',
-        NODE_COLOR_REGISTRY,
         hide=HIDE_CPU,
     )
     _plot_bar_chart(
@@ -114,8 +125,9 @@ def plot_usage(
         (0, 2),
         rusty_gpus,
         rusty_max_gpus,
-        'Rusty GPUs',
-        NODE_COLOR_REGISTRY,
+        'Rusty Current GPU Usage',
+        stagger_xlabels=True,
+        hide=HIDE_GPU,
     )
     _plot_stacked(
         axes,
@@ -131,7 +143,6 @@ def plot_usage(
         select_last(popeye_nodes),
         select_last(popeye_max),
         'Popeye Current CPU Usage',
-        NODE_COLOR_REGISTRY,
         hide=HIDE_CPU,
     )
     _logo_plot(
@@ -223,8 +234,9 @@ def _plot_bar_chart(
     data: dict,
     max_data: list,
     title: str,
-    color_registry: dict,
+    color_registry: dict | None = None,
     hide: set = None,
+    stagger_xlabels: bool = False,
 ):
     """Plot an (unstacked) bar chart of one bar per node type, showing current CPUs
     allocated. In other words, this is a snapshot of the latest cluster state, not a
@@ -251,11 +263,18 @@ def _plot_bar_chart(
 
     ax.set_ylim(top=max(max_data) * 1.1)
 
+    if color_registry:
+        colors = get_colors(color_registry, keys)
+    else:
+        colors = CENTER_COLORS['scc']
+
+    keylabels = [NICKNAME.get(k, k) for k in keys]
+
     ax.bar(
         keys,
         data,
-        color=get_colors(color_registry, keys),
-        label=keys,
+        color=colors,
+        tick_label=keylabels,
     )
 
     # for capacity, draw a hollow bar
@@ -296,6 +315,11 @@ def _plot_bar_chart(
             lambda x, pos: f'{x / 1_000:.0f} K' if x >= 1_000 else f'{x:.0f}'
         )
     )
+
+    if stagger_xlabels:
+        labels = [label.get_text() for label in ax.get_xticklabels()]
+        new_labels = ['\n' + L if i % 2 else L for i, L in enumerate(labels)]
+        ax.set_xticklabels(new_labels)
 
 
 def _logo_plot(axes, pos: tuple[int, int]):
