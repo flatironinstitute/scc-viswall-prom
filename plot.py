@@ -133,13 +133,15 @@ def plot_usage(
     if not outfn:
         timestamp = datetime.now().strftime(r'%Y-%m-%d_%H%M%S')
         outfn = Path(f'usage_{timestamp}.png')
+
+        latest = outfn.with_stem('usage-latest')
+        latest.unlink(missing_ok=True)
+        latest.symlink_to(outfn)
+    else:
+        outfn = Path(outfn)
     fig.savefig(outfn)
 
     print(f'Saved plot to {outfn}')
-
-    latest = Path('usage-latest.png')
-    latest.unlink(missing_ok=True)
-    latest.symlink_to(outfn)
 
 
 def _plot_stacked(
@@ -283,7 +285,6 @@ def _plot_bar_chart(
 
 
 def _logo_plot(axes, pos: tuple[int, int]):
-    pos_above = (pos[0] - 1, pos[1])
     ax: plt.Axes = axes[pos]
     ax.set_axis_off()
 
@@ -305,12 +306,9 @@ def _logo_plot(axes, pos: tuple[int, int]):
     img_resized = img.resize((display_width, display_height), Image.Resampling.LANCZOS)
 
     # Position in figure coordinates (center of axes + vertical offset)
-    # xoff = 0.05  # fig coordinates
     yoff = 0.0
     x_center = (ax_bbox.x0 + ax_bbox.width / 2) * fig.bbox.width
     y_center = (ax_bbox.y0 + ax_bbox.height / 2 + yoff) * fig.bbox.height
-
-    print(locals())
 
     # Convert image to array and display
     fig.figimage(
