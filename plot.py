@@ -245,7 +245,7 @@ def _plot_bar_chart(
         keys = [k for k in keys if k not in hide]
 
     keys.sort()
-    
+
     max_data = [max_data[k] for k in keys]
     data = [data[k] for k in keys]
 
@@ -376,6 +376,7 @@ def add_subplot_title(ax: plt.Axes, title: str):
         horizontalalignment='right',
     )
 
+
 def date_formatter(ts: float, pos=None) -> str:
     dt: datetime = mpl.dates.num2date(ts)
     month = dt.strftime('%b')
@@ -426,7 +427,8 @@ def initialize_colors(
 
 
 def select_last(data):
-    return {k:data[k][-1] for k in data}
+    return {k: data[k][-1] for k in data}
+
 
 if __name__ == '__main__':
     plot_usage()

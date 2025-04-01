@@ -85,7 +85,7 @@ def get_usage_by(
         A dictionary with grouping names as keys and lists of usage values as values.
     """
     do_range = days != 0
-    
+
     if do_range:
         end_time = NOW
         start_time = end_time - timedelta(days=days)
@@ -172,6 +172,7 @@ def _query(
 
     return result
 
+
 def _group_by(result: dict, metric: str) -> dict:
     """
     Formats Prometheus instantaneous query results as a dictionary of values.
@@ -187,6 +188,7 @@ def _group_by(result: dict, metric: str) -> dict:
             data_dict[group] = value
 
     return data_dict
+
 
 def _range_group_by(result: dict, metric: str, missing=0) -> dict:
     """

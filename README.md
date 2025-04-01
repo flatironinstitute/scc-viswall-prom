@@ -13,3 +13,6 @@ To make the image with the plots:
 ```
 uv run plot.py
 ```
+
+## License
+Apache-2.0
