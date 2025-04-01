@@ -11,6 +11,13 @@ dependencies = [
     "urllib3>=2.3.0",
 ]
 
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+viswall_prom = ["scc_icon.png"]
+
 [project.scripts]
 viswall-prom = "viswall_prom.plot:plot_usage"
 
