@@ -66,11 +66,11 @@ def plot_usage(
     # Gather data
     rusty_acct   = prom.get_usage_by("account", "rusty" , days, step)
     rusty_nodes  = prom.get_usage_by("nodes"  , "rusty" , days, step)
-    rusty_gpus   = prom.get_usage_by("nodes"  , "rusty" , days, step, "gpus")
+    rusty_gpus   = prom.get_usage_by("nodes"  , "rusty" , 0, '', "gpus")
     popeye_acct  = prom.get_usage_by("account", "popeye", days, step)
     popeye_nodes = prom.get_usage_by("nodes"  , "popeye", days, step)
     rusty_max      = prom.get_max_resource("rusty", days, step)
-    rusty_max_gpus = prom.get_max_resource("rusty", days, step, "gpus")
+    rusty_max_gpus = prom.get_max_resource("rusty", 0, '', "gpus")
     popeye_max     = prom.get_max_resource("popeye", days, step)
     # fmt: on
 
@@ -103,8 +103,8 @@ def plot_usage(
     _plot_bar_chart(
         axes,
         (0, 1),
-        rusty_nodes,
-        rusty_max,
+        select_last(rusty_nodes),
+        select_last(rusty_max),
         'Rusty Current CPU Usage',
         NODE_COLOR_REGISTRY,
         hide=HIDE_CPU,
@@ -128,8 +128,8 @@ def plot_usage(
     _plot_bar_chart(
         axes,
         (1, 1),
-        popeye_nodes,
-        popeye_max,
+        select_last(popeye_nodes),
+        select_last(popeye_max),
         'Popeye Current CPU Usage',
         NODE_COLOR_REGISTRY,
         hide=HIDE_CPU,
@@ -234,26 +234,26 @@ def _plot_bar_chart(
     if not data:
         ax_no_data(ax, title)
         return
-    data.pop('timestamps')
+    data.pop('timestamps', None)
     keys = list(data.keys())
 
     # remove keys with zero max
-    keys = [k for k in keys if max_data[k][-1] > 0]
+    keys = [k for k in keys if max_data[k] > 0]
 
     # remove keys that are hidden
     if hide:
         keys = [k for k in keys if k not in hide]
 
     keys.sort()
-    max_bar_data = [max_data[k][-1] for k in keys]
+    
+    max_data = [max_data[k] for k in keys]
+    data = [data[k] for k in keys]
 
-    bar_data = [data[k][-1] for k in keys]
-
-    ax.set_ylim(top=max(max_bar_data) * 1.1)
+    ax.set_ylim(top=max(max_data) * 1.1)
 
     ax.bar(
         keys,
-        bar_data,
+        data,
         color=get_colors(color_registry, keys),
         label=keys,
     )
@@ -261,7 +261,7 @@ def _plot_bar_chart(
     # for capacity, draw a hollow bar
     ax.bar(
         keys,
-        max_bar_data,
+        max_data,
         color='none',
         # edgecolor=get_colors(color_registry, keys),
         edgecolor='black',
@@ -376,7 +376,6 @@ def add_subplot_title(ax: plt.Axes, title: str):
         horizontalalignment='right',
     )
 
-
 def date_formatter(ts: float, pos=None) -> str:
     dt: datetime = mpl.dates.num2date(ts)
     month = dt.strftime('%b')
@@ -425,6 +424,9 @@ def initialize_colors(
     for idx, key in enumerate(remaining_keys):
         registry[key] = fallback_cmap(idx % len(fallback_cmap.colors))
 
+
+def select_last(data):
+    return {k:data[k][-1] for k in data}
 
 if __name__ == '__main__':
     plot_usage()
