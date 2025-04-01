@@ -24,6 +24,13 @@ CENTER_COLORS = {
 CENTER_COLOR_REGISTRY = {}
 NODE_COLOR_REGISTRY = {}
 
+HIDE_CPU = {
+    'eval',
+    'gpu',
+    'gpuxl',
+    'mem',
+}
+
 plt.rcParams['font.family'] = 'monospace'
 
 
@@ -81,7 +88,7 @@ def plot_usage(
         dpi=dpi,
         sharex=False,
         sharey=False,
-        width_ratios=[8, 5, 2],
+        width_ratios=[12, 4, 4],
         layout='constrained',
     )
 
@@ -100,6 +107,7 @@ def plot_usage(
         rusty_max,
         'Rusty Current CPU Usage',
         NODE_COLOR_REGISTRY,
+        hide=HIDE_CPU,
     )
     _plot_bar_chart(
         axes,
@@ -124,6 +132,7 @@ def plot_usage(
         popeye_max,
         'Popeye Current CPU Usage',
         NODE_COLOR_REGISTRY,
+        hide=HIDE_CPU,
     )
     _logo_plot(
         axes,
@@ -215,6 +224,7 @@ def _plot_bar_chart(
     max_data: list,
     title: str,
     color_registry: dict,
+    hide: set = None,
 ):
     """Plot an (unstacked) bar chart of one bar per node type, showing current CPUs
     allocated. In other words, this is a snapshot of the latest cluster state, not a
@@ -229,6 +239,10 @@ def _plot_bar_chart(
 
     # remove keys with zero max
     keys = [k for k in keys if max_data[k][-1] > 0]
+
+    # remove keys that are hidden
+    if hide:
+        keys = [k for k in keys if k not in hide]
 
     keys.sort()
     max_bar_data = [max_data[k][-1] for k in keys]
@@ -312,7 +326,10 @@ def _logo_plot(axes, pos: tuple[int, int]):
 
     # Convert image to array and display
     fig.figimage(
-        np.array(img_resized), xo=x_center - img_resized.width / 2, yo=y_center - img_resized.height / 2, origin='upper'
+        np.array(img_resized),
+        xo=x_center - img_resized.width / 2,
+        yo=y_center - img_resized.height / 2,
+        origin='upper',
     )
 
     # text above the logo
