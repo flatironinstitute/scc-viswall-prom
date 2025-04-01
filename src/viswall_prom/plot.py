@@ -1,6 +1,7 @@
 # FUTURE: should we plot CPUs or nodes?
 
 from datetime import datetime
+from importlib.resources import files
 from pathlib import Path
 
 import click
@@ -328,7 +329,7 @@ def _logo_plot(axes, pos: tuple[int, int]):
     ax_bbox = ax.get_position()
 
     # Load the image
-    img = Image.open('scc_icon.png')
+    img = Image.open(files('viswall_prom').joinpath('scc_icon.png'))
 
     # Calculate image dimensions and position in figure coordinates
     ratio = 0.05
