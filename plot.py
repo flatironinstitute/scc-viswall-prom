@@ -347,11 +347,12 @@ def _logo_plot(axes, pos: tuple[int, int]):
 
 
 def add_subplot_title(ax: plt.Axes, title: str):
-    ax.text(
-        0.98,
-        0.98,
+    ax.annotate(
         title,
-        transform=ax.transAxes,
+        xy=(1, 1),
+        xycoords='axes fraction',
+        xytext=(-0.5, -0.5),
+        textcoords='offset fontsize',
         fontsize='larger',
         fontweight='bold',
         verticalalignment='top',
