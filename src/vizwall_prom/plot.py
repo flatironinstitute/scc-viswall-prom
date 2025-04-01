@@ -153,10 +153,6 @@ def plot_usage(
     if not outfn:
         timestamp = datetime.now().strftime(r'%Y-%m-%d_%H%M%S')
         outfn = Path(f'usage_{timestamp}.png')
-
-        latest = outfn.with_stem('usage-latest')
-        latest.unlink(missing_ok=True)
-        latest.symlink_to(outfn)
     else:
         outfn = Path(outfn)
     fig.savefig(outfn)
