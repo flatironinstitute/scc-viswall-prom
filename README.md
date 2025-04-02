@@ -14,5 +14,11 @@ To make the image with the plots:
 uv run -m viswall_prom.plot
 ```
 
+## Crontab Example
+Via uvx:
+```
+0 * * * * $HOME/.local/bin/uvx git+https://github.com/flatironinstitute/scc-viswall-prom.git@prod -o $HOME/usage.png
+```
+
 ## License
 Apache-2.0
