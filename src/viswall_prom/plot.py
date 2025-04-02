@@ -23,9 +23,6 @@ CENTER_COLORS = {
     'flatiron': '#537EBA',
 }
 
-CENTER_COLOR_REGISTRY = {}
-NODE_COLOR_REGISTRY = {}
-
 HIDE_CPU = {
     'eval',
     'gpu',
@@ -42,7 +39,12 @@ NICKNAME = {
     'a100-sxm4-40gb': 'a100-40gb',
 }
 
+AXIS_LABEL_FONT = {'fontweight': 'bold'}
+
 plt.rcParams['font.family'] = 'monospace'
+
+CENTER_COLOR_REGISTRY = {}
+NODE_COLOR_REGISTRY = {}
 
 
 @click.command()
@@ -93,6 +95,8 @@ def plot_usage(
     initialize_colors(
         NODE_COLOR_REGISTRY, unique_keys([rusty_nodes, popeye_nodes, rusty_max_gpus])
     )
+    # node_colors = NODE_COLOR_REGISTRY
+    node_colors = CENTER_COLORS['flatiron']
 
     fig, axes = plt.subplots(
         2,
@@ -119,6 +123,7 @@ def plot_usage(
         select_last(rusty_nodes),
         select_last(rusty_max),
         'Rusty Current CPU Usage',
+        node_colors,
         hide=HIDE_CPU,
     )
     _plot_bar_chart(
@@ -128,6 +133,7 @@ def plot_usage(
         rusty_max_gpus,
         'Rusty Current GPU Usage',
         stagger_xlabels=True,
+        colors=node_colors,
         hide=HIDE_GPU,
     )
     _plot_stacked(
@@ -144,6 +150,7 @@ def plot_usage(
         select_last(popeye_nodes),
         select_last(popeye_max),
         'Popeye Current CPU Usage',
+        node_colors,
         hide=HIDE_CPU,
     )
     _logo_plot(
@@ -204,9 +211,9 @@ def _plot_stacked(
     )
 
     if pos[0] >= 1:
-        ax.set_xlabel('Time')
+        ax.set_xlabel('Time', **AXIS_LABEL_FONT)
     if pos[1] == 0:
-        ax.set_ylabel('CPU Cores')
+        ax.set_ylabel('CPU Cores', **AXIS_LABEL_FONT)
     if pos[1] >= 1:
         ax.tick_params(
             axis='y',
@@ -231,7 +238,7 @@ def _plot_bar_chart(
     data: dict,
     max_data: list,
     title: str,
-    color_registry: dict | None = None,
+    colors: dict | str | None = None,
     hide: set = None,
     stagger_xlabels: bool = False,
 ):
@@ -260,10 +267,8 @@ def _plot_bar_chart(
 
     ax.set_ylim(top=max(max_data) * 1.1)
 
-    if color_registry:
-        colors = get_colors(color_registry, keys)
-    else:
-        colors = CENTER_COLORS['scc']
+    if isinstance(colors, dict):
+        colors = get_colors(colors, keys)
 
     keylabels = [NICKNAME.get(k, k) for k in keys]
 
@@ -295,7 +300,15 @@ def _plot_bar_chart(
     )
 
     if pos[1] == 0:
-        ax.set_ylabel('CPU Cores')
+        ax.set_ylabel('CPU Cores', **AXIS_LABEL_FONT)
+    if pos[1] == 1:
+        # Sadly constrained layout doesn't seem to be aware of the right-side label,
+        # hence the need for labelpad
+        ax.set_ylabel('CPU Cores', rotation=270, labelpad=15, **AXIS_LABEL_FONT)
+        ax.yaxis.set_label_position('right')
+    if pos[1] == 2:
+        ax.set_ylabel('GPUs', rotation=270, labelpad=15, **AXIS_LABEL_FONT)
+        ax.yaxis.set_label_position('right')
     if pos[1] >= 1:
         ax.tick_params(
             axis='y',
@@ -304,6 +317,10 @@ def _plot_bar_chart(
             labelright=True,
             right=True,
         )
+    if pos[1] == 1 and pos[0] == len(axes) - 1:
+        ax.set_xlabel('CPU Type', fontweight='bold')
+    if pos[1] == 2:
+        ax.set_xlabel('GPU Type', fontweight='bold')
 
     add_subplot_title(ax, title)
 
