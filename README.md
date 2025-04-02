@@ -6,12 +6,12 @@ Generate plots of cluster usage data for the viswall by scraping Prometheus.
 To check that the Prometheus query is working:
 
 ```console
-uv run prom.py
+uv run -m viswall_prom.prom
 ```
 
 To make the image with the plots:
-```
-uv run plot.py
+```console
+uv run -m viswall_prom.plot
 ```
 
 ## License
