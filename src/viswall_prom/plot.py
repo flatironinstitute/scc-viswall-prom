@@ -174,6 +174,13 @@ def plot_usage(
         outfn = Path(f'usage_{timestamp}.png')
     else:
         outfn = Path(outfn)
+
+    # Freeze the layout, then add the xlabel
+    # Couldn't figure out how otherwise exclude the xlabel from the spacing calculation
+    fig.canvas.draw()
+    fig.set_layout_engine('none')
+    axes[0, 2].set_xlabel('GPU Type', fontweight='bold')
+
     fig.savefig(outfn)
 
     print(f'Saved plot to {outfn}')
@@ -333,8 +340,9 @@ def _plot_bar_chart(
     if pos[1] == 1 and pos[0] == len(axes) - 1:
         ax.set_xlabel('CPU Type', fontweight='bold')
     if pos[1] == 2:
-        ax.set_xlabel('GPU Type', fontweight='bold')
-
+        # This is deferred to later
+        # ax.set_xlabel('GPU Type', fontweight='bold')
+        pass
     add_subplot_title(ax, title)
 
     ax.yaxis.set_major_formatter(
