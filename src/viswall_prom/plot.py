@@ -4,14 +4,20 @@ from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
 
-import click
 import matplotlib as mpl
+
+mpl.use('Agg')
+
+import click
+import matplotlib.colors
 import matplotlib.dates
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
 from . import prom
+
+CPU_PERCENT_THRESHOLD = 0.02
 
 CENTER_COLORS = {
     'cca': '#CE3232',
@@ -20,8 +26,13 @@ CENTER_COLORS = {
     'ccn': '#007F9D',
     'ccq': '#845B8E',
     'scc': '#8F8F8F',
+    'Others': '#537EBA',
     'flatiron': '#537EBA',
 }
+
+CYCLE_OTHERS = matplotlib.colors.ListedColormap(
+    ['#5A6D5A', '#A7856A', '#6B879F', '#AA9F8A', '#6B5F90']
+)
 
 HIDE_CPU = {
     'eval',
@@ -175,12 +186,14 @@ def _plot_stacked(
     max_data: list,
     title: str,
     color_registry: dict,
+    cdf_threshold: float = CPU_PERCENT_THRESHOLD,
 ):
     ax: plt.Axes = axes[pos]
     if not data:
         ax_no_data(ax, title)
         return
     x_vals = data.pop('timestamps')
+    data = group_small(data, cdf_threshold)
     keys = list(data.keys())
     keys.sort(key=lambda k: data[k][-1], reverse=True)
     # Create X values and prepare the stacked data
@@ -447,17 +460,16 @@ def get_colors(registry, keys: list[str]) -> list[str]:
 
 
 def initialize_colors(
-    registry: dict, keys: set[str], fixed=None, fallback_cmap='tab10'
+    registry: dict, keys: set[str], fixed=None, fallback_cmap=CYCLE_OTHERS
 ):
     """Initialize global color mapping for all keys across all subplots"""
 
     if fixed:
-        for key in keys:
-            if key.lower() in fixed:
-                registry[key] = fixed[key.lower()]
+        registry.update(fixed)
 
-    # Then, assign tab10 colors to remaining keys (sorted alphabetically)
-    fallback_cmap = mpl.colormaps[fallback_cmap]
+    # Then, assign fallback colors to remaining keys (sorted alphabetically)
+    if type(fallback_cmap) is str:
+        fallback_cmap = mpl.colormaps[fallback_cmap]
     remaining_keys = sorted([k for k in keys if k not in registry])
 
     for idx, key in enumerate(remaining_keys):
@@ -466,6 +478,32 @@ def initialize_colors(
 
 def select_last(data):
     return {k: data[k][-1] for k in data}
+
+
+def group_small(data: dict, threshold: float) -> dict:
+    """Group together any centers whose cumulative fractional CPU usage is less than
+    `threshold` at all times.
+
+    # The algorithm: sum up the total usage for each center across all times.
+    # Flag any center below the threshold as eligible for grouping.
+    # At the end, group those centers into an "Others" category.
+    """
+
+    total_usage = {k: sum(v) for k, v in data.items()}
+
+    small_centers = [
+        k for k, v in total_usage.items() if v / sum(total_usage.values()) < threshold
+    ]
+
+    if not small_centers:
+        return data
+
+    new_data = data.copy()
+    new_data['Others'] = np.sum([data[k] for k in small_centers], axis=0)
+    for k in small_centers:
+        del new_data[k]
+
+    return new_data
 
 
 if __name__ == '__main__':
