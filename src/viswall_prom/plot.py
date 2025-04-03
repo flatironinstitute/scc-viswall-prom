@@ -17,7 +17,7 @@ from PIL import Image
 
 from . import prom
 
-CPU_PERCENT_THRESHOLD = 0.02
+CPU_PERCENT_THRESHOLD = 0.1
 
 CENTER_COLORS = {
     'cca': '#CE3232',
@@ -200,9 +200,8 @@ def _plot_stacked(
         ax_no_data(ax, title)
         return
     x_vals = data.pop('timestamps')
-    data = group_small(data, cdf_threshold)
+    data = sort_and_group(data, cdf_threshold)
     keys = list(data.keys())
-    keys.sort(key=lambda k: data[k][-1], reverse=True)
     # Create X values and prepare the stacked data
     stack_data = [data[k] for k in keys]
 
@@ -488,28 +487,37 @@ def select_last(data):
     return {k: data[k][-1] for k in data}
 
 
-def group_small(data: dict, threshold: float) -> dict:
+def sort_and_group(data: dict, threshold: float) -> dict:
     """Group together any centers whose cumulative fractional CPU usage is less than
-    `threshold` at all times.
-
-    # The algorithm: sum up the total usage for each center across all times.
-    # Flag any center below the threshold as eligible for grouping.
-    # At the end, group those centers into an "Others" category.
+    `threshold` at all times. Sort the rest in decreasing order on the most recent value.
     """
+    # The algorithm: sum up the total usage for each center across all times.
+    # Flag any center below the cumulative threshold as eligible for grouping.
+    # At the end, group those centers into an "Others" category.
 
-    total_usage = {k: sum(v) for k, v in data.items()}
+    data = {
+        k: v for (k, v) in sorted(data.items(), key=lambda kv: kv[1][-1], reverse=True)
+    }
 
-    small_centers = [
-        k for k, v in total_usage.items() if v / sum(total_usage.values()) < threshold
-    ]
+    total_by_center = {k: sum(v) for k, v in data.items()}
+    total_by_center = {
+        k: v for (k, v) in sorted(total_by_center.items(), key=lambda kv: kv[1])
+    }
+    total = sum(total_by_center.values())
+
+    small_centers = set()
+    others_sum = 0
+    for center, usage in total_by_center.items():
+        if (others_sum + usage) / total > threshold:
+            break
+        others_sum += usage
+        small_centers.add(center)
 
     if not small_centers:
         return data
 
-    new_data = data.copy()
+    new_data = {k: v for (k, v) in data.items() if k not in small_centers}
     new_data['Others'] = np.sum([data[k] for k in small_centers], axis=0)
-    for k in small_centers:
-        del new_data[k]
 
     return new_data
 
