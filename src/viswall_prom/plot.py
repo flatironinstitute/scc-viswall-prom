@@ -136,6 +136,7 @@ def plot_usage(
         'Rusty Current CPU Usage',
         node_colors,
         hide=HIDE_CPU,
+        legend=False,  # do we need a legend for the bar charts?
     )
     _plot_bar_chart(
         axes,
@@ -260,6 +261,7 @@ def _plot_bar_chart(
     colors: dict | str | None = None,
     hide: set = None,
     stagger_xlabels: bool = False,
+    legend: bool = False,
 ):
     """Plot an (unstacked) bar chart of one bar per node type, showing current CPUs
     allocated. In other words, this is a snapshot of the latest cluster state, not a
@@ -296,6 +298,7 @@ def _plot_bar_chart(
         data,
         color=colors,
         tick_label=keylabels,
+        label='Usage',
     )
 
     # for capacity, draw a hollow bar
@@ -343,6 +346,9 @@ def _plot_bar_chart(
         # ax.set_xlabel('GPU Type', fontweight='bold')
         pass
     add_subplot_title(ax, title)
+
+    if legend:
+        ax.legend()
 
     ax.yaxis.set_major_formatter(
         mpl.ticker.FuncFormatter(
