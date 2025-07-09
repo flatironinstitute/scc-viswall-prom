@@ -371,33 +371,62 @@ def _logo_plot(axes, pos: tuple[int, int]):
     fig.canvas.draw()
     ax_bbox = ax.get_position()
 
-    # Load the image
-    img = Image.open(files('viswall_prom').joinpath('scc_icon.png'))
+    # Load the QR code background image
+    qr_img = Image.open(files('viswall_prom').joinpath('grafana_qr.png'))
+    
+    # Load the SCC icon (foreground)
+    scc_img = Image.open(files('viswall_prom').joinpath('scc_icon.png')).convert('RGB')
 
-    # Calculate image dimensions and position in figure coordinates
-    ratio = 0.05
-    img_aspect = img.width / img.height
+    # Calculate QR code dimensions and position in figure coordinates
+    qr_ratio = 0.22
+    qr_aspect = qr_img.width / qr_img.height
 
-    # Resize the image
-    display_height = int(fig.bbox.height * ratio)
-    display_width = int(display_height * img_aspect)
-    img_resized = img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+    # Resize the QR code image
+    qr_display_height = int(fig.bbox.height * qr_ratio)
+    qr_display_width = int(qr_display_height * qr_aspect)
+    qr_resized = qr_img.resize((qr_display_width, qr_display_height), Image.Resampling.NEAREST)
 
-    # Position in figure coordinates (center of axes + vertical offset)
+    # Position QR code in figure coordinates (center of axes + vertical offset)
     yoff = 0.0
     x_center = (ax_bbox.x0 + ax_bbox.width / 2) * fig.bbox.width
     y_center = (ax_bbox.y0 + ax_bbox.height / 2 + yoff) * fig.bbox.height
 
-    # Convert image to array and display
+    # Display QR code
     fig.figimage(
-        np.array(img_resized),
-        xo=x_center - img_resized.width / 2,
-        yo=y_center - img_resized.height / 2,
+        np.asarray(qr_resized),
+        xo=x_center - qr_resized.width / 2,
+        yo=y_center - qr_resized.height / 2,
+        origin='upper',
+        cmap='gray',
+    )
+
+    # Calculate SCC icon dimensions (smaller than QR code)
+    scc_ratio = 0.03
+    scc_aspect = scc_img.width / scc_img.height
+
+    # Resize the SCC icon
+    scc_display_height = int(fig.bbox.height * scc_ratio)
+    scc_display_width = int(scc_display_height * scc_aspect)
+    scc_resized = scc_img.resize((scc_display_width, scc_display_height), Image.Resampling.LANCZOS)
+
+    # Create a white background for the SCC logo
+    bg_padding = 10  # pixels of padding around the logo
+    bg_width = scc_resized.width + 2 * bg_padding
+    bg_height = scc_resized.height + 2 * bg_padding
+    white_bg = Image.new('RGB', (bg_width, bg_height), (255, 255, 255))
+    white_bg.paste(scc_resized, (bg_padding, bg_padding))
+    scc_with_bg = white_bg
+
+    # Display SCC icon centered over QR code
+    fig.figimage(
+        np.asarray(scc_with_bg),
+        xo=x_center - scc_with_bg.width / 2,
+        yo=y_center - scc_with_bg.height / 2,
         origin='upper',
     )
 
-    # text above the logo
-    text_yoff = 0.05
+    # text above the images
+    text_yoff = 0.11
     fig.text(
         x_center / fig.bbox.width,
         y_center / fig.bbox.height + text_yoff,
@@ -413,7 +442,7 @@ def _logo_plot(axes, pos: tuple[int, int]):
     datetext = datetime.now().strftime(r'%Y-%m-%d')
     timetext = datetime.now().strftime(r'%-I:%M %p ET')
 
-    # timestamp below the logo
+    # timestamp below the images
     fig.text(
         x_center / fig.bbox.width,
         y_center / fig.bbox.height - text_yoff,
