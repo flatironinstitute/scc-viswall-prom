@@ -68,7 +68,7 @@ NODE_COLOR_REGISTRY = {}
 @click.option(
     '--step',
     '-s',
-    default='1h',
+    default='15m',
     help='Time step for the data points',
 )
 @click.option(
@@ -84,7 +84,7 @@ NODE_COLOR_REGISTRY = {}
     help='Output filename for the plot (default: usage_<timestamp>.png)',
 )
 def plot_usage(
-    outfn: str | None = None, days: int = 7, step: str = '1h', dpi: int = 144
+    outfn: str | None = None, days: int = 7, step: str = '15m', dpi: int = 144
 ):
     # fmt: off
     # Gather data
