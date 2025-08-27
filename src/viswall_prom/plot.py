@@ -211,8 +211,9 @@ def _plot_stacked(
         stack_data,
         labels=keys,
         colors=get_colors(color_registry, keys),
+        step='post',
     )
-    ax.plot(x_vals, max_data['total'], label='Capacity', color='black', linestyle='-')
+    ax.plot(max_data['timestamps'], max_data['total'], label='Capacity', color='black', linestyle='-')
     ax.legend(loc='upper left', ncol=2, framealpha=0.95)
     ax.set_xlim(left=min(x_vals), right=max(x_vals))
     ax.set_ylim(top=max(max_data['total']) * 1.1)
