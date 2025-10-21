@@ -39,6 +39,7 @@ HIDE_CPU = {
     'gpu',
     'gpuxl',
     'mem',
+    'gpup',
 }
 
 HIDE_GPU = {
