@@ -49,6 +49,9 @@ HIDE_GPU = {
 NICKNAME = {
     'a100-sxm4-80gb': 'a100-80gb',
     'a100-sxm4-40gb': 'a100-40gb',
+    'rtx_pro_6000_blackwell': 'rtxblackwell',
+    'h100_pcie': 'h100',
+    'h100': 'h100-sxm5',
 }
 
 AXIS_LABEL_FONT = {'fontweight': 'bold'}
