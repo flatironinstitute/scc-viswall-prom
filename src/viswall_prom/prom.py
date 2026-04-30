@@ -118,7 +118,7 @@ def _capacity_query(grouping: Grouping, resource: Resource) -> str:
     """
     Generates a PromQL query for total available in the cluster.
     """
-    return f'sum {f"by({grouping})" if grouping else ""} (slurm_node_{resource}{{state!="drain",state!="down"}})'
+    return f'sum {f"by({grouping})" if grouping else ""} (slurm_node_{resource}{{state!="drain",state!="down",state!="maint"}})'
 
 
 def _query(
