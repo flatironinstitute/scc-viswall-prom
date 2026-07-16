@@ -38,6 +38,7 @@ HIDE_CPU = {
     'eval',
     'gpu',
     'gpuxl',
+    'llm',
     'mem',
     'gpup',
     'datagpu',
