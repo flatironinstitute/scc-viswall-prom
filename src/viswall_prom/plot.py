@@ -327,12 +327,11 @@ def _plot_bar_chart(
 
     if stagger_xlabels:
         order = _stagger_order(keylabels)
-        keys = [keys[i] for i in order]
-        keylabels = [keylabels[i] for i in order]
-        data = [data[i] for i in order]
-        max_data = [max_data[i] for i in order]
-        if isinstance(colors, list):
-            colors = [colors[i] for i in order]
+        def reorder(seq):
+            return [seq[i] for i in order] if isinstance(seq, list) else seq
+        keys, keylabels, data, max_data, colors = map(
+            reorder, (keys, keylabels, data, max_data, colors)
+        )
 
     ax.bar(
         keys,
