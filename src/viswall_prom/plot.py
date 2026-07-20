@@ -259,6 +259,31 @@ def _plot_stacked(
     )
 
 
+def _stagger_order(labels: list[str]) -> list[int]:
+    """Return a permutation of bar indices that keeps long labels from colliding
+    once every other x-label is dropped to a second row.
+
+    Staggering puts even final positions on the top row and odd positions on the
+    bottom row, so same-row neighbours are two positions apart. We reserve the
+    slots with ``p % 4 in (0, 3)`` for the longest labels and give the rest to the
+    short ones; that pattern keeps consecutive long-label slots on a given row
+    separated by a short label, so two long labels are never side by side.
+    """
+    n = len(labels)
+    by_len = sorted(range(n), key=lambda i: len(labels[i]))
+    long_slots = [p for p in range(n) if p % 4 in (0, 3)]
+    short_slots = [p for p in range(n) if p % 4 in (1, 2)]
+    long_idx = set(by_len[n - len(long_slots) :])
+    longs = [i for i in range(n) if i in long_idx]  # preserve input (sorted) order
+    shorts = [i for i in range(n) if i not in long_idx]
+    order = [0] * n
+    for slot, i in zip(long_slots, longs):
+        order[slot] = i
+    for slot, i in zip(short_slots, shorts):
+        order[slot] = i
+    return order
+
+
 def _plot_bar_chart(
     axes,
     pos: tuple[int, int],
@@ -299,6 +324,15 @@ def _plot_bar_chart(
         colors = get_colors(colors, keys)
 
     keylabels = [NICKNAME.get(k, k) for k in keys]
+
+    if stagger_xlabels:
+        order = _stagger_order(keylabels)
+        keys = [keys[i] for i in order]
+        keylabels = [keylabels[i] for i in order]
+        data = [data[i] for i in order]
+        max_data = [max_data[i] for i in order]
+        if isinstance(colors, list):
+            colors = [colors[i] for i in order]
 
     ax.bar(
         keys,
