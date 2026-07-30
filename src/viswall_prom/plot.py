@@ -53,7 +53,14 @@ NICKNAME = {
     'a100-sxm4-40gb': 'a100-40gb',
     'rtx_pro_6000_blackwell': 'rtxblackwell',
     'h100_pcie': 'h100',
-    'h100': 'h100-sxm5',
+    # 'h100': 'h100-sxm5',
+}
+
+# gputypes whose key starts with one of these prefixes are merged into a single
+# summed bar under the given label
+GPU_GROUPS = {
+    'a100_': 'a100-mig',
+    'h100': 'h100',
 }
 
 AXIS_LABEL_FONT = {'fontweight': 'bold'}
@@ -62,6 +69,20 @@ plt.rcParams['font.family'] = 'monospace'
 
 CENTER_COLOR_REGISTRY = {}
 NODE_COLOR_REGISTRY = {}
+
+
+def group_gputypes(data: dict) -> dict:
+    """Merge gputypes sharing a GPU_GROUPS prefix into one summed entry, keeping
+    everything else untouched. Values are plain counts (instant query), so a
+    group's value is the sum of its members'.
+    """
+    grouped = {}
+    for key, value in data.items():
+        label = next(
+            (lbl for pre, lbl in GPU_GROUPS.items() if key.startswith(pre)), key
+        )
+        grouped[label] = grouped.get(label, 0) + value
+    return grouped
 
 
 @click.command()
@@ -103,6 +124,9 @@ def plot_usage(
     rusty_max_gpus = prom.get_max_resource("rusty", 0, '', "gpus", "gputype")
     popeye_max     = prom.get_max_resource("popeye", days, step)
     # fmt: on
+
+    rusty_gpus = group_gputypes(rusty_gpus)
+    rusty_max_gpus = group_gputypes(rusty_max_gpus)
 
     initialize_colors(
         CENTER_COLOR_REGISTRY,
